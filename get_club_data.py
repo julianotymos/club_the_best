@@ -3,16 +3,8 @@ import psycopg2
 import pandas as pd
 from psycopg2.extras import RealDictCursor
 
-@st.cache_resource
-def get_connection():
-    return psycopg2.connect(
-        dbname=st.secrets["dbname"],
-        user=st.secrets["user"],
-        password=st.secrets["password"],
-        host=st.secrets["host"],
-        port=st.secrets["port"],
-        cursor_factory=RealDictCursor
-    )
+from get_connection import get_connection
+
 
 # Função para buscar dados
 def get_club_data(start_date, end_date):
@@ -20,7 +12,9 @@ def get_club_data(start_date, end_date):
     WITH vendas_agrupadas AS (
         SELECT 
             DATE(S.CREATED_AT) AS data_venda,
-            CAST(SUM(CASE WHEN S.CPF_USED_CLUB = TRUE THEN 1 ELSE 0 END) AS NUMERIC) AS qty_cpf_club,
+            ---CAST(SUM(CASE WHEN S.CPF_USED_CLUB = TRUE THEN 1 ELSE 0 END) AS NUMERIC) AS qty_cpf_club,
+            CAST(SUM(CASE WHEN COALESCE(S.client_cpf, '') <> '' THEN 1 ELSE 0 END) AS NUMERIC) AS qty_cpf_club,
+
             CAST(COUNT(1) AS NUMERIC) AS vendas_totais,
             CH.OPENED_BY,
             MAX(U.NAME) AS nome_usuario

@@ -24,7 +24,7 @@ def create_club_chart(df: pd.DataFrame):
     line_chart = alt.Chart(df).mark_line().encode(
         x=alt.X(
             'Data da Venda:T',
-            title='Data da Venda',
+            title=None,
             axis=alt.Axis(format="%d/%m/%Y")
         ),
         y=alt.Y(
@@ -33,9 +33,14 @@ def create_club_chart(df: pd.DataFrame):
             scale=alt.Scale(domain=[min_pct - 2, max_pct + 2]), # Adiciona uma margem
             axis=alt.Axis(values=y_ticks) # Define os ticks manualmente
         ),
-        color=alt.Color('Vendedor', title='Vendedor'),
+        color=alt.Color('Vendedor', title=None,
+        legend=alt.Legend(
+        orient="bottom",  # coloca a legenda embaixo
+        direction="horizontal",  # orientação horizontal
+        columns=4          # 2 itens por linha
+        ) ),
         tooltip=[
-            alt.Tooltip('Data da Venda', title='Data da Venda', format="%d/%m/%Y"),
+            alt.Tooltip('Data da Venda', title=None, format="%d/%m/%Y"),
             'Vendedor',
             '% CPF Clube (Acumulado)'
         ]
@@ -54,9 +59,13 @@ def create_club_chart(df: pd.DataFrame):
             scale=alt.Scale(domain=[min_pct - 2, max_pct + 2]),
             axis=alt.Axis(values=y_ticks)
         ),
-        color=alt.Color('Vendedor', title='Vendedor'),
+        color=alt.Color('Vendedor', title=None,legend=alt.Legend(
+        orient="bottom",  # coloca a legenda embaixo
+        direction="horizontal",  # orientação horizontal
+        columns=4               # 2 itens por linha
+    )  ),
         tooltip=[
-            alt.Tooltip('Data da Venda', title='Data da Venda', format="%d/%m/%Y"),
+            alt.Tooltip('Data da Venda', title=None, format="%d/%m/%Y"),
             'Vendedor',
             '% CPF Clube (Acumulado)'
         ]
