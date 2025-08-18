@@ -4,7 +4,7 @@ from psycopg2.extras import RealDictCursor
 import altair as alt
 import datetime
 from create_club_chart import create_club_chart, create_ranking_chart
-from get_club_data import get_club_data
+from get_club_data import get_club_data , generate_total_weekly_df, generate_weekly_df
 from read_sales_items_report_by_user import read_sales_items_report_by_user
 from create_sales_chart_by_user import create_sales_chart_by_user
 from create_sale_items_chart import create_sale_items_chart
@@ -29,15 +29,22 @@ tab_cpf_club, tab_vendas_atendente = st.tabs(["CPF Club", "Vendas por Atendente"
 with tab_cpf_club:
     if start_date and end_date:
         df = get_club_data(start_date, end_date)
-
+        df_w = generate_weekly_df (df)
+        df_t = generate_total_weekly_df(df_w)
         if not df.empty:
             st.subheader("Ranking Final por Vendedor")
             ranking_chart = create_ranking_chart(df)
+            
             st.altair_chart(ranking_chart, use_container_width=True)
 
             st.subheader("% CPF Club (Acumulado) por Período")
             final_chart = create_club_chart(df)
             st.altair_chart(final_chart, use_container_width=True)
+            
+            st.subheader("Semanal Total")
+            st.dataframe(df_t, hide_index=True)
+            st.subheader("Semanal por Atendente")
+            st.dataframe(df_w, hide_index=True)
             
             st.subheader("Dados dia a dia")
             st.data_editor(

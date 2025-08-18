@@ -2,7 +2,7 @@ import streamlit as st
 import psycopg2
 import pandas as pd
 from psycopg2.extras import RealDictCursor
-
+import datetime 
 from get_connection import get_connection
 
 
@@ -20,7 +20,6 @@ def get_club_data(start_date, end_date):
             MAX(U.NAME) AS nome_usuario
         FROM CASH_HISTORY CH  
         LEFT JOIN USER_THE_BEST U ON U.ID = CH.OPENED_BY 
-        INNER JOIN BALANCE_HISTORY BH ON BH.CASH_HISTORY_ID = CH.ID 
         INNER JOIN SALES S ON S.CASH_HISTORY_ID = CH.ID 
         WHERE CH.STORE_ID = 467
             AND DATE(S.CREATED_AT) >= %s
@@ -77,3 +76,105 @@ def get_club_data(start_date, end_date):
                 #df['% CPF Clube (Dia)'] = df['% CPF Clube (Dia)'].apply(lambda x: f'{x:.2f}'.replace('.', ','))
                 #df['% CPF Clube (Acumulado)'] = df['% CPF Clube (Acumulado)'].apply(lambda x: f'{x:.2f}'.replace('.', ','))
             return df
+        
+import pandas as pd
+
+def generate_weekly_df(df_daily: pd.DataFrame) -> pd.DataFrame:
+    """
+    Agrupa os dados diários em uma base semanal, calculando a soma das vendas
+    e a porcentagem de vendas com CPF do clube.
+
+    Args:
+        df_daily (pd.DataFrame): O DataFrame diário retornado pela função get_club_data.
+
+    Returns:
+        pd.DataFrame: Um novo DataFrame agrupado por semana e atendente.
+    """
+    if df_daily.empty:
+        return pd.DataFrame()
+
+    # Garantir que a coluna de data esteja em formato datetime
+    df_daily['Data da Venda'] = pd.to_datetime(df_daily['Data da Venda'])
+
+    # Criar colunas auxiliares para início e fim da semana
+    df_daily['Início da Semana (Segunda-feira)'] = df_daily['Data da Venda'] - pd.to_timedelta(df_daily['Data da Venda'].dt.weekday, unit='d')
+    df_daily['Último Dia da Semana (Domingo)'] = df_daily['Início da Semana (Segunda-feira)'] + pd.Timedelta(days=6)
+
+    # Agrupar por atendente e intervalo da semana
+    df_weekly = df_daily.groupby(
+        ['Vendedor', 'Início da Semana (Segunda-feira)', 'Último Dia da Semana (Domingo)'],
+        as_index=False
+    ).agg(
+        Vendas_Totais_Semana=('Vendas Totais (Dia)', 'sum'),
+        Qtd_CPF_Clube_Semana=('Qtd. CPF Clube (Dia)', 'sum')
+    )
+
+    # Calcular a porcentagem semanal
+    df_weekly['% CPF Clube (Semana)'] = round(
+        (df_weekly['Qtd_CPF_Clube_Semana'] / df_weekly['Vendas_Totais_Semana']) * 100, 2
+    )
+
+    # Converter colunas de datas para formato apenas de data
+    df_weekly['Início da Semana (Segunda-feira)'] = df_weekly['Início da Semana (Segunda-feira)'].dt.date
+    df_weekly['Último Dia da Semana (Domingo)'] = df_weekly['Último Dia da Semana (Domingo)'].dt.date
+
+    # Reordenar as colunas
+    new_column_order = [
+        'Início da Semana (Segunda-feira)',
+        'Último Dia da Semana (Domingo)',
+        'Vendedor',
+        'Vendas_Totais_Semana',
+        'Qtd_CPF_Clube_Semana',
+        '% CPF Clube (Semana)'
+    ]
+    df_weekly = df_weekly[new_column_order]
+
+    return df_weekly
+
+def generate_total_weekly_df(df_weekly):
+    """
+    Consolida o DataFrame semanal por vendedor em um DataFrame com os totais da loja por semana.
+
+    Args:
+        df_weekly (pd.DataFrame): O DataFrame semanal por vendedor retornado pela função generate_weekly_df.
+
+    Returns:
+        pd.DataFrame: Um novo DataFrame com os totais da loja por semana.
+    """
+    if df_weekly.empty:
+        return pd.DataFrame()
+
+    # Agrupar por semana (sem considerar vendedor) e somar as colunas de vendas
+    df_total = df_weekly.groupby(
+        ['Início da Semana (Segunda-feira)', 'Último Dia da Semana (Domingo)'],
+        as_index=False
+    ).agg(
+        Vendas_Totais_Semana=('Vendas_Totais_Semana', 'sum'),
+        Qtd_CPF_Clube_Semana=('Qtd_CPF_Clube_Semana', 'sum')
+    )
+
+    # Calcular a porcentagem de CPF Clube para o total da loja
+    df_total['% CPF Clube (Semana)'] = round(
+        (df_total['Qtd_CPF_Clube_Semana'] / df_total['Vendas_Totais_Semana']) * 100, 2
+    )
+
+    # Converter colunas de datas para formato apenas de data (garantia)
+    df_total['Início da Semana (Segunda-feira)'] = pd.to_datetime(df_total['Início da Semana (Segunda-feira)']).dt.date
+    df_total['Último Dia da Semana (Domingo)'] = pd.to_datetime(df_total['Último Dia da Semana (Domingo)']).dt.date
+
+    # Reordenar as colunas para consistência
+    df_total = df_total[
+        ['Início da Semana (Segunda-feira)', 'Último Dia da Semana (Domingo)',
+         'Vendas_Totais_Semana', 'Qtd_CPF_Clube_Semana', '% CPF Clube (Semana)']
+    ]
+
+    return df_total
+
+#start_date = datetime.date(2025, 7, 21) # Primeiro dia de agosto de 2025
+#end_date = datetime.date(2025, 7, 27)   # Nono dia de agosto de 2025
+
+#df = get_club_data(start_date=start_date ,end_date=end_date)
+#df2 = generate_weekly_df(df)
+#print(df2)
+#df3 = generate_total_weekly_df(df2)
+#print(df3)
